@@ -9,18 +9,8 @@ const ExpenseForm = () => {
       amount: 0,
       date: ""
     }
-
   });
-useEffect(() => {
-        const getPost = async () => {
-            const response = await axios(
-                "https://expense-tracker-1884d-default-rtdb.asia-southeast1.firebasedatabase.app/expenses.json"
-            );
-            // const list = await response.json();
-            console.log(response.data);
-        };
-        getPost();
-    }, []);
+
   const [expenses, setExpenses] = useState([]);
   const [filteredExpenses, setFilteredExpenses] = useState([]);
   const [totalExpense, setTotalExpense] = useState(0);
@@ -28,8 +18,31 @@ useEffect(() => {
     startDate: '',
     endDate: ''
   });
+  useEffect(() => {
+    const getPost = async () => {
+      try {
+        const response = await axios.get(
+          "https://expense-tracker-1884d-default-rtdb.asia-southeast1.firebasedatabase.app/expenses.json"
+        );
 
-  const onAddexpense = async (data) => {
+        if (response.data) {
+          const formattedExpenses = Object.entries(response.data).map(([id, expense]) => ({
+            id,
+            name: expense['expense-name'],
+            amount: parseFloat(expense['expense-amount']),
+            date: expense['expense-date']
+          }));
+          setExpenses(formattedExpenses);
+          applyDateFilter(formattedExpenses);
+        }
+      } catch (error) {
+        console.error("Error fetching expenses:", error);
+      }
+    };
+    getPost();
+  }, []);
+
+  const onAddExpense = async (data) => {
     const formattedData = {
       "expense-name": data.name,
       "expense-amount": data.amount,
@@ -38,26 +51,30 @@ useEffect(() => {
 
     await axios.post(
       "https://expense-tracker-1884d-default-rtdb.asia-southeast1.firebasedatabase.app/expenses.json",
-      {
-        ...formattedData,
-      }
+      formattedData
     );
-    console.log(data);
+    console.log("Expense added:", data);
+
+    const response = await axios.get(
+      "https://expense-tracker-1884d-default-rtdb.asia-southeast1.firebasedatabase.app/expenses.json"
+    );
+    if (response.data) {
+      const formattedExpenses = Object.entries(response.data).map(([id, expense]) => ({
+        id,
+        name: expense['expense-name'],
+        amount: parseFloat(expense['expense-amount']),
+        date: expense['expense-date']
+      }));
+      setExpenses(formattedExpenses);
+      applyDateFilter(formattedExpenses);
+    }
   };
-  
 
   const onSubmit = (data) => {
-    onAddexpense(data);
-    console.log(data); 
+    onAddExpense(data);
   };
-
-  useEffect(() => {
-    const total = filteredExpenses.reduce((acc, expense) => acc + expense.amount, 0);
-    setTotalExpense(total);
-  }, [filteredExpenses]);
-
-  useEffect(() => {
-    const filtered = expenses.filter((expense) => {
+  const applyDateFilter = (expensesList) => {
+    const filtered = expensesList.filter((expense) => {
       const expenseDate = new Date(expense.date);
       const startDate = filterDates.startDate ? new Date(filterDates.startDate) : null;
       const endDate = filterDates.endDate ? new Date(filterDates.endDate) : null;
@@ -65,6 +82,12 @@ useEffect(() => {
       return (!startDate || expenseDate >= startDate) && (!endDate || expenseDate <= endDate);
     });
     setFilteredExpenses(filtered);
+    const total = filtered.reduce((acc, expense) => acc + expense.amount, 0);
+    setTotalExpense(total);
+  };
+
+  useEffect(() => {
+    applyDateFilter(expenses);
   }, [filterDates, expenses]);
 
   return (
@@ -121,7 +144,7 @@ useEffect(() => {
       <h2 className="text-2xl font-semibold mt-10 mb-4">Filter Expenses</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-white">Start Date</label>
+          <label className="block text-sm font-medium text-gray-700">Start Date</label>
           <input
             type="date"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black" 
@@ -131,7 +154,7 @@ useEffect(() => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-white">End Date</label>
+          <label className="block text-sm font-medium text-gray-700">End Date</label>
           <input
             type="date"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black" 
@@ -151,8 +174,8 @@ useEffect(() => {
           </tr>
         </thead>
         <tbody className="text-black">
-          {filteredExpenses.map((expense, index) => (
-            <tr key={index} className="border-b">
+          {filteredExpenses.map((expense) => (
+            <tr key={expense.id} className="border-b">
               <td className="px-4 py-2">{expense.name}</td>
               <td className="px-4 py-2">Rs {expense.amount}</td>
               <td className="px-4 py-2">{expense.date}</td>
