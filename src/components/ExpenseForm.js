@@ -85,7 +85,6 @@ const ExpenseForm = () => {
     const total = filtered.reduce((acc, expense) => acc + expense.amount, 0);
     setTotalExpense(total);
   };
-
   useEffect(() => {
     applyDateFilter(expenses);
   }, [filterDates, expenses]);
