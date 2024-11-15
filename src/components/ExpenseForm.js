@@ -14,10 +14,25 @@ const ExpenseForm = () => {
   const [expenses, setExpenses] = useState([]);
   const [filteredExpenses, setFilteredExpenses] = useState([]);
   const [totalExpense, setTotalExpense] = useState(0);
+  const [budget] = useState(20000); 
   const [filterDates, setFilterDates] = useState({
     startDate: '',
     endDate: ''
   });
+
+  const applyDateFilter = (expensesList) => {
+    const filtered = expensesList.filter((expense) => {
+      const expenseDate = new Date(expense.date);
+      const startDate = filterDates.startDate ? new Date(filterDates.startDate) : null;
+      const endDate = filterDates.endDate ? new Date(filterDates.endDate) : null;
+
+      return (!startDate || expenseDate >= startDate) && (!endDate || expenseDate <= endDate);
+    });
+    setFilteredExpenses(filtered);
+    const total = filtered.reduce((acc, expense) => acc + expense.amount, 0);
+    setTotalExpense(total);
+  };
+
   useEffect(() => {
     const getPost = async () => {
       try {
@@ -35,26 +50,26 @@ const ExpenseForm = () => {
           setExpenses(formattedExpenses);
           applyDateFilter(formattedExpenses);
         }
+        
       } catch (error) {
         console.error("Error fetching expenses:", error);
       }
     };
     getPost();
   }, []);
-
+  useEffect(() => {
+    applyDateFilter(expenses);
+  }, [filterDates, expenses]);
   const onAddExpense = async (data) => {
     const formattedData = {
       "expense-name": data.name,
       "expense-amount": data.amount,
       "expense-date": data.date,
     };
-
     await axios.post(
       "https://expense-tracker-1884d-default-rtdb.asia-southeast1.firebasedatabase.app/expenses.json",
       formattedData
     );
-    console.log("Expense added:", data);
-
     const response = await axios.get(
       "https://expense-tracker-1884d-default-rtdb.asia-southeast1.firebasedatabase.app/expenses.json"
     );
@@ -67,27 +82,33 @@ const ExpenseForm = () => {
       }));
       setExpenses(formattedExpenses);
       applyDateFilter(formattedExpenses);
+    
+      window.alert(`Expense "${data.name}" of amount Rs ${data.amount} has been added.`);
     }
   };
 
   const onSubmit = (data) => {
     onAddExpense(data);
   };
-  const applyDateFilter = (expensesList) => {
-    const filtered = expensesList.filter((expense) => {
-      const expenseDate = new Date(expense.date);
-      const startDate = filterDates.startDate ? new Date(filterDates.startDate) : null;
-      const endDate = filterDates.endDate ? new Date(filterDates.endDate) : null;
+  const remainingBudget = budget - totalExpense;
+  const usedPercentage = ((totalExpense / budget) * 100).toFixed(2);
+  const availablePercentage = (100 - usedPercentage).toFixed(2);
 
-      return (!startDate || expenseDate >= startDate) && (!endDate || expenseDate <= endDate);
-    });
-    setFilteredExpenses(filtered);
-    const total = filtered.reduce((acc, expense) => acc + expense.amount, 0);
-    setTotalExpense(total);
+  const budgetColor = remainingBudget >= budget * 0.5
+    ? 'green'
+    : remainingBudget >= budget * 0.2
+    ? 'yellow'
+    : 'red';
+  const getExpenseColor = (expenseAmount) => {
+    const remaining = budget - (totalExpense - expenseAmount);
+    if (remaining >= budget * 0.5) {
+      return 'green';
+    } else if (remaining >= budget * 0.2) {
+      return 'yellow';
+    } else {
+      return 'red';
+    }
   };
-  useEffect(() => {
-    applyDateFilter(expenses);
-  }, [filterDates, expenses]);
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -97,7 +118,7 @@ const ExpenseForm = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700">Expense Name</label>
             <input
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black" 
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
               id="name"
               {...register('name', { required: true })}
             />
@@ -109,7 +130,7 @@ const ExpenseForm = () => {
             <input
               type="number"
               id="expenseAmt"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black" 
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
               {...register('amount', { required: true, validate: value => value > 0 })}
             />
             {errors.amount && <span className="text-red-500 text-sm mt-1">Amount must be a positive number</span>}
@@ -120,7 +141,7 @@ const ExpenseForm = () => {
             <input
               type="date"
               id="expenseDate"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black" 
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
               {...register('date', {
                 required: true,
                 validate: value => new Date(value) <= new Date(),
@@ -146,7 +167,7 @@ const ExpenseForm = () => {
           <label className="block text-sm font-medium text-gray-700">Start Date</label>
           <input
             type="date"
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black" 
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
             value={filterDates.startDate}
             onChange={(e) => setFilterDates({ ...filterDates, startDate: e.target.value })}
           />
@@ -156,7 +177,7 @@ const ExpenseForm = () => {
           <label className="block text-sm font-medium text-gray-700">End Date</label>
           <input
             type="date"
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black" 
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
             value={filterDates.endDate}
             onChange={(e) => setFilterDates({ ...filterDates, endDate: e.target.value })}
           />
@@ -174,7 +195,10 @@ const ExpenseForm = () => {
         </thead>
         <tbody className="text-black">
           {filteredExpenses.map((expense) => (
-            <tr key={expense.id} className="border-b">
+            <tr
+              key={expense.id}
+              className={`border-b bg-${getExpenseColor(expense.amount)}-100`}
+            >
               <td className="px-4 py-2">{expense.name}</td>
               <td className="px-4 py-2">Rs {expense.amount}</td>
               <td className="px-4 py-2">{expense.date}</td>
@@ -182,9 +206,15 @@ const ExpenseForm = () => {
           ))}
         </tbody>
       </table>
-
       <h3 className="text-xl font-semibold mt-6">
         Total Expense: <span className="text-red-500">Rs {totalExpense}</span>
+      </h3>
+
+      <h3 className="text-xl font-semibold mt-4" style={{ color: budgetColor }}>
+        Remaining Budget: Rs {remainingBudget}
+      </h3>
+      <h3 className="text-xl font-semibold mt-2">
+        Used: {usedPercentage}% | Available: {availablePercentage}%
       </h3>
     </div>
   );
